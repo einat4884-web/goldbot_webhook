@@ -1,31 +1,37 @@
-from flask import Flask, request
-import os, requests
+import os
+import requests
+from flask import Flask, request, jsonify
 
-TOKEN = os.getenv("BOT_TOKEN")  # לא צריך CHAT_ID
+TOKEN = os.getenv("BOT_TOKEN")
 
 app = Flask(__name__)
 
-@app.route("/", methods=["GET"])
-def home():
-    return "ok"
+def send_message(chat_id, text):
+    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+    payload = {"chat_id": chat_id, "text": text}
+    r = requests.post(url, json=payload, timeout=10)
+    return r.json()
 
-@app.route("/webhook", methods=["POST"])
+@app.route("/", methods=["GET"])
+def health():
+    return jsonify(status="ok", message="Bot is alive")
+
+@app.route("/", methods=["POST"])
 def webhook():
-    data = request.get_json(silent=True) or {}
-    msg = data.get("message") or data.get("edited_message") or {}
-    chat = msg.get("chat") or {}
+    update = request.get_json(silent=True) or {}
+    message = (update.get("message")
+               or update.get("edited_message")
+               or {})
+    chat = message.get("chat") or {}
     chat_id = chat.get("id")
-    text = msg.get("text", "")
+    text = message.get("text", "")
 
     if not chat_id:
-        return {"ok": True}
+        return jsonify(ok=True)
 
-    reply = f"🤖 קיבלתי: {text}" if text else "🤖 קיבלתי הודעה."
-    requests.post(
-        f"https://api.telegram.org/bot{TOKEN}/sendMessage",
-        json={"chat_id": chat_id, "text": reply}
-    )
-    return {"ok": True}
+    if text == "/start":
+        reply = "שלום! הבוט מחובר ועובד ✅"
+    else:
+        reply = f"קיבלתי: {text}"
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    send_message(chat_id, reply)
