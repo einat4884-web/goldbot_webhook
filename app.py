@@ -1,32 +1,31 @@
 from flask import Flask, request
-import requests
-import os
+import os, requests
 
-# קבלת הטוקן וה-CHAT ID מהסביבה
-TOKEN = os.getenv("BOT_TOKEN")
-CHAT_ID = os.getenv("CHAT_ID")
+TOKEN = os.getenv("BOT_TOKEN")  # לא צריך CHAT_ID
 
 app = Flask(__name__)
 
-@app.route('/')
+@app.route("/", methods=["GET"])
 def home():
-    return "Bot is running!"
+    return "ok"
 
-@app.route('/send', methods=['GET', 'POST'])
-def send_message():
-    if request.method == 'GET':
-        return {"status": "ok", "message": "GET request received"}
-    
-    # מקבל את ההודעה מה-JSON
-    data = request.json
-    message = data.get("message", "Hello from Render!")
-    
-    # שליחת ההודעה לטלגרם
-    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    payload = {"chat_id": CHAT_ID, "text": message}
-    r = requests.post(url, json=payload)
-    
-    return r.json()
+@app.route("/webhook", methods=["POST"])
+def webhook():
+    data = request.get_json(silent=True) or {}
+    msg = data.get("message") or data.get("edited_message") or {}
+    chat = msg.get("chat") or {}
+    chat_id = chat.get("id")
+    text = msg.get("text", "")
+
+    if not chat_id:
+        return {"ok": True}
+
+    reply = f"🤖 קיבלתי: {text}" if text else "🤖 קיבלתי הודעה."
+    requests.post(
+        f"https://api.telegram.org/bot{TOKEN}/sendMessage",
+        json={"chat_id": chat_id, "text": reply}
+    )
+    return {"ok": True}
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
