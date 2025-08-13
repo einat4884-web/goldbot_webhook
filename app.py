@@ -7,32 +7,18 @@ API = f"https://api.telegram.org/bot{TOKEN}"
 
 app = Flask(__name__)
 
-def send_message(chat_id: int, text: str, keyboard: bool = True):
+def send_message(chat_id, text):
     url = f"{API}/sendMessage"
-    payload = {
-        "chat_id": chat_id,
-        "text": text,
-        "parse_mode": "HTML",
-    }
-    if keyboard:
-        # מקלדת מהירה עם כפתורים
-        payload["reply_markup"] = {
-            "keyboard": [
-                [{"text": "✅ מצב בוט"}, {"text": "ℹ️ עזרה"}],
-                [{"text": "✨ התחלה"}, {"text": "❌ ביטול"}]
-            ],
-            "resize_keyboard": True,
-            "one_time_keyboard": False
-        }
-    # שליחה
+    payload = {"chat_id": chat_id, "text": text}
     r = requests.post(url, json=payload, timeout=10)
     return r.json()
 
-@app.get("/")
+@app.route("/", methods=["GET"])
 def health():
-    return jsonify(status="ok", message="bot is alive")
+    # החזרה בפורמט JSON - טוב למוניטורינג
+    return jsonify(ok=True, message="health")
 
-@app.post("/")
+@app.route("/", methods=["POST"])
 def webhook():
     update = request.get_json(silent=True) or {}
     message = update.get("message") or update.get("edited_message") or {}
@@ -43,19 +29,10 @@ def webhook():
     if not chat_id:
         return jsonify(ok=True)
 
-    # לוגיקה פשוטה לשיחה
-    if text in ("/start", "✨ התחלה"):
-        reply = "שלום! הבוט מחובר ועובד ✅\nשלחי אחת מהאפשרויות:"
-    elif text in ("✅ מצב בוט",):
-        reply = "מצב: פעיל ✅\nאם לא מגיעות תשובות, בדקי שהטוקן נכון ושיש Webhook."
-    elif text in ("ℹ️ עזרה",):
-        reply = "פקודות: /start • מצב בוט • עזרה • ביטול"
-    elif text in ("❌ ביטול",):
-        reply = "בוטל. אני כאן כשתצטרכי 🙂"
-    elif text.startswith("/"):
-        reply = "לא זיהיתי את הפקודה הזאת. נסי /start"
+    if text == "/start":
+        reply = "שלום! הבוט מחובר ועובד ✅"
     else:
         reply = f"קיבלתי: {text}"
 
-    send_message(chat_id, reply, keyboard=True)
+    send_message(chat_id, reply)
     return jsonify(ok=True)
